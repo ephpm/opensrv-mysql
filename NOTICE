@@ -1,0 +1,17 @@
+opensrv-mysql (ePHPm fork)
+
+This product is a fork of the `opensrv-mysql` crate from the OpenSrv project:
+
+    OpenSrv
+    Copyright 2021 Datafuse Labs
+    https://github.com/datafuselabs/opensrv
+
+Licensed under the Apache License, Version 2.0 (see the LICENSE file).
+
+Modifications in this fork (ePHPm, https://github.com/ephpm) are limited to a
+dependency migration (tokio-rustls 0.25 -> 0.26, rustls 0.22 -> >= 0.23.45,
+pinned to the aws-lc-rs crypto provider) and are likewise released under the
+Apache License, Version 2.0. See FORK.md for details.
+
+The original per-file copyright headers ("Copyright 2021 Datafuse Labs.") are
+retained unchanged.

@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Build the library and examples with the default (tls) feature set.
+      # This is the surface litewire/ePHPm consume; the fork's sole change is
+      # the tokio-rustls/rustls/provider bump, so a clean build here is the
+      # gate that matters. The heavier integration tests (tests/it/*) require
+      # very old, pinned mysql/mysql_async dev-deps and a live TLS loopback and
+      # are intentionally not run in fork CI.
+      - name: build (default features = tls, aws-lc-rs)
+        run: cargo build --lib --examples
+      - name: verify rustls >= 0.23.45 and no ring
+        run: |
+          cargo tree -e no-dev -i rustls
+          # `ring` must not appear anywhere in the compiled graph (aws-lc-rs only).
+          if cargo tree -e no-dev -i ring 2>/dev/null | grep -q '^ring'; then
+            echo "::error::ring is present in the dependency graph (expected aws-lc-rs only)"
+            exit 1
+          fi

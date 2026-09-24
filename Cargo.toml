@@ -1,0 +1,56 @@
+[package]
+name = "opensrv-mysql"
+version = "0.7.0"
+authors = ["Databend Authors <opensource@datafuselabs.com>"]
+edition = "2021"
+rust-version = "1.71"
+license = "Apache-2.0"
+description = "Bindings for emulating a MySQL/MariaDB server (ePHPm fork: tokio-rustls 0.26 / aws-lc-rs)."
+readme = "README.md"
+repository = "https://github.com/ephpm/opensrv-mysql"
+
+[lib]
+doctest = false
+
+[features]
+default = ["tls"]
+tls = ["tokio-rustls", "pin-project-lite"]
+
+[dependencies]
+async-trait = "0.1.52"
+byteorder = "1.4.3"
+chrono = "0.4.20"
+mysql_common = { version = "0.32.0", features = ["chrono"] }
+nom = "7.1.0"
+tokio = { version = "1.17.0", features = ["io-util", "io-std"] }
+# ePHPm fork change (RUSTSEC-2026-0285): tokio-rustls 0.25 -> 0.26 to pull
+# rustls >= 0.23.45. `default-features = false` + the explicit `aws_lc_rs`
+# feature pins the crypto provider to aws-lc-rs and structurally forbids
+# `ring` (ePHPm invariant #241). `logging` and `tls12` restore the parts of
+# tokio-rustls' default feature set that 0.25 gave us; only the provider
+# changes (ring -> aws-lc-rs).
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["aws_lc_rs", "logging", "tls12"] }
+pin-project-lite = { version = "0.2.9", optional = true }
+
+[dev-dependencies]
+mysql = "=24.0.0"
+mysql_async = "=0.31.0"
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+rcgen = "0.12"
+tempfile = "3.3.0"
+native-tls = "0.2.8"
+rustls-pemfile = { version = "2.0" }
+rustls-pki-types = "1.0"
+
+[[example]]
+name = "serve_auth"
+path = "examples/serve_auth.rs"
+
+[[example]]
+name = "serve_one"
+path = "examples/serve_one.rs"
+
+[[example]]
+name = "serve_secure"
+path = "examples/serve_secure.rs"
