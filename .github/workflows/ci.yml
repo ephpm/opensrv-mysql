@@ -30,3 +30,11 @@ jobs:
             echo "::error::ring is present in the dependency graph (expected aws-lc-rs only)"
             exit 1
           fi
+      - name: verify no C zlib (libz-sys) in the graph
+        run: |
+          # mysql_common's default `flate2/zlib` feature pulls libz-sys, whose
+          # bundled Z_SOLO zlib shadowed PHP's zlib in ePHPm. Keep it out.
+          if cargo tree -e no-dev --target all -i libz-sys 2>/dev/null | grep -q '^libz-sys'; then
+            echo "::error::libz-sys is present in the dependency graph (mysql_common default features?)"
+            exit 1
+          fi

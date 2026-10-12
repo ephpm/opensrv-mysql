@@ -34,6 +34,24 @@ in `Cargo.toml`:
 - `logging` + `tls12` restore the rest of tokio-rustls' default feature set that
   `0.25` gave us, so only the provider changes.
 
+A second `Cargo.toml` change turns off `mysql_common`'s default features
+(keeping `chrono`, the only one used):
+
+```diff
+-mysql_common = { version = "0.32.0", features = ["chrono"] }
++mysql_common = { version = "0.32.0", default-features = false, features = ["chrono"] }
+```
+
+`mysql_common`'s defaults include `flate2/zlib`, which puts the C `libz-sys`
+crate in the graph. On a build host without a system zlib, libz-sys compiles
+its own bundled zlib with `Z_SOLO` and links it into the binary. ePHPm links
+PHP against the php-sdk's static `libz.a`, and the duplicate
+`inflate*`/`deflate*` symbols from libz-sys took precedence, so PHP's
+`gzopen`, `compress.zlib://` and `ZipArchive` ran on a `Z_SOLO` zlib, which
+returns `Z_STREAM_ERROR` for the `NULL` allocator those callers pass. The
+other default features (bigdecimal, rust_decimal, time, frunk, derive,
+binlog) are unused here. CI fails if `libz-sys` comes back.
+
 No source code (`src/**`) is modified. In particular the TLS/auth path — the
 `tls` feature, `secure_run_with_options`, and the `init_after_ssl` handshake
 re-parse that litewire relies on for authentication (litewire #32) — is
