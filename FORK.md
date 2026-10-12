@@ -20,8 +20,8 @@ providers in the graph and break ePHPm's TLS startup.
 
 ## The change
 
-This fork is `opensrv-mysql 0.7.0` with a **single functional change**, entirely
-in `Cargo.toml`:
+This fork is `opensrv-mysql 0.7.0` with two functional changes, both in
+`Cargo.toml`. The first:
 
 ```diff
 -tokio-rustls = { version = "0.25", optional = true }
@@ -33,6 +33,32 @@ in `Cargo.toml`:
   provider to **aws-lc-rs** and structurally forbids `ring`.
 - `logging` + `tls12` restore the rest of tokio-rustls' default feature set that
   `0.25` gave us, so only the provider changes.
+
+The second turns off `mysql_common`'s default features (keeping `chrono`) and
+selects flate2's pure-Rust backend directly, because mysql_common's defaults
+were the only thing choosing a flate2 backend:
+
+```diff
+-mysql_common = { version = "0.32.0", features = ["chrono"] }
++mysql_common = { version = "0.32.0", default-features = false, features = ["chrono"] }
++flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+```
+
+`mysql_common`'s defaults include `flate2/zlib`, which puts the C `libz-sys`
+crate in the graph. On a build host without a system zlib, libz-sys compiles
+its own bundled zlib with `Z_SOLO` and links it into the binary. ePHPm links
+PHP against the php-sdk's static `libz.a`, and the duplicate
+`inflate*`/`deflate*` symbols from libz-sys took precedence, so PHP's
+`gzopen`, `compress.zlib://` and `ZipArchive` ran on a `Z_SOLO` zlib, which
+returns `Z_STREAM_ERROR` for the `NULL` allocator those callers pass. The
+other default features (bigdecimal, rust_decimal, time, frunk, derive,
+binlog) are unused here. CI builds the library on its own (building the
+examples pulls in old pinned dev-dependencies that turn `flate2/zlib` back on,
+which would hide a missing backend) and fails if `libz-sys` comes back.
+
+`mysql_common` also depends unconditionally on `zstd`, so the C `zstd-sys`
+library stays in the graph. That is the same shadowing risk for a consumer
+that links its own libzstd; ePHPm's PHP SDK does not ship one today.
 
 No source code (`src/**`) is modified. In particular the TLS/auth path — the
 `tls` feature, `secure_run_with_options`, and the `init_after_ssl` handshake

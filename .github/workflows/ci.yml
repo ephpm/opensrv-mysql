@@ -15,11 +15,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       # Build the library and examples with the default (tls) feature set.
-      # This is the surface litewire/ePHPm consume; the fork's sole change is
-      # the tokio-rustls/rustls/provider bump, so a clean build here is the
-      # gate that matters. The heavier integration tests (tests/it/*) require
+      # This is the surface litewire/ePHPm consume; the fork's changes are
+      # manifest-only (see FORK.md), so a clean build here is the gate that
+      # matters. The heavier integration tests (tests/it/*) require
       # very old, pinned mysql/mysql_async dev-deps and a live TLS loopback and
       # are intentionally not run in fork CI.
+      #
+      # The library alone first: building examples pulls in those old dev-deps,
+      # whose mysql_common turns flate2/zlib back on and would hide a missing
+      # flate2 backend in the library's own graph.
+      - name: build library alone
+        run: cargo build --lib
       - name: build (default features = tls, aws-lc-rs)
         run: cargo build --lib --examples
       - name: verify rustls >= 0.23.45 and no ring
@@ -28,5 +34,13 @@ jobs:
           # `ring` must not appear anywhere in the compiled graph (aws-lc-rs only).
           if cargo tree -e no-dev -i ring 2>/dev/null | grep -q '^ring'; then
             echo "::error::ring is present in the dependency graph (expected aws-lc-rs only)"
+            exit 1
+          fi
+      - name: verify no C zlib (libz-sys) in the graph
+        run: |
+          # mysql_common's default `flate2/zlib` feature pulls libz-sys, whose
+          # bundled Z_SOLO zlib shadowed PHP's zlib in ePHPm. Keep it out.
+          if cargo tree -e no-dev --target all -i libz-sys 2>/dev/null | grep -q '^libz-sys'; then
+            echo "::error::libz-sys is present in the dependency graph (mysql_common default features?)"
             exit 1
           fi

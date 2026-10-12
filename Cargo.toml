@@ -20,7 +20,23 @@ tls = ["tokio-rustls", "pin-project-lite"]
 async-trait = "0.1.52"
 byteorder = "1.4.3"
 chrono = "0.4.20"
-mysql_common = { version = "0.32.0", features = ["chrono"] }
+# ePHPm fork change: `default-features = false`. mysql_common's default feature
+# set includes `flate2/zlib`, which switches flate2 to the C `libz-sys` backend.
+# When the build host has no system zlib, libz-sys compiles its own bundled
+# zlib with `Z_SOLO` (no default allocator, no gz* API) into the binary. ePHPm
+# links PHP statically against the php-sdk's libz.a, and the duplicate
+# `inflate*`/`deflate*` definitions from libz-sys won the link, so PHP's gz*
+# file API and libzip called a Z_SOLO zlib that returns Z_STREAM_ERROR for a
+# NULL `zalloc` (ephpm/ephpm: gzopen/compress.zlib://ZipArchive all broken in
+# the v0.11.3 Docker image). Nothing here uses the other default features
+# (bigdecimal, rust_decimal, time, frunk, derive, binlog); only `chrono` is
+# kept (the unit tests' chrono FromValue round-trips use it).
+mysql_common = { version = "0.32.0", default-features = false, features = ["chrono"] }
+# mysql_common always uses flate2 but declares it with default-features = false,
+# so with its defaults off nothing selects a flate2 backend and flate2 fails
+# with "You need to choose a zlib backend". Select the pure-Rust backend
+# (miniz_oxide) directly: it exports no C zlib symbols.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 nom = "7.1.0"
 tokio = { version = "1.17.0", features = ["io-util", "io-std"] }
 # ePHPm fork change (RUSTSEC-2026-0285): tokio-rustls 0.25 -> 0.26 to pull
